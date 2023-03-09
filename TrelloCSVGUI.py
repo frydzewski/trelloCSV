@@ -9,30 +9,7 @@ import os
 from os import path
 import subprocess
 
-# excluded lists
-guideList = '62e056d02f149d20d4051694'  # '62e056d02f149d20d4051694' = Guide
-rbtList = '62e0a66909940c66425f4e59'  # '62e0a66909940c66425f4e59' = Roadmap Building tasks
-completeList = '62e05775c97ca95c1f490398'  # '62e05775c97ca95c1f490398' = Complete (Dev Done)
-ideas2021List = '6037b11252d9416ed766d30e'  # '6037b11252d9416ed766d30e' = Ideas to Review - from 2021
-releasedList = '6318f2b99ece920258808c4c'  # '6318f2b99ece920258808c4c' = Released
-released2023List = '63bf1c35ba364f01c442327f' # 2023 Q1 releases
-pitOfDespairList = '6037b1889454270830207261' # pit of despair
-
-exclude = [guideList, rbtList, completeList, ideas2021List, releasedList, released2023List, pitOfDespairList]
-
-#excluded cards
-separatorCard = '631f8bae6646580132cd4510'
-
-#included lists
-activeDevList = '6037b11252d9416ed766d30f' # activeDevList
-next3List = '62e059d937cbc61122aa168a' #next3
-next46List = '6320da300ff66a00c9d54084' #4-6
-laterList = '6037b17835a3218900975486' #later
-prioritizationList = '62e09ddcd0afaf297c309bbc' #prioritization
-triageList = '62e0a77cf4794110c551efdd'#triage
-
-includeOrderedList = [activeDevList, next3List, next46List, laterList, prioritizationList, triageList]
-
+# This is pretty hot garbage and is how you sling some code
 
 class Editor(tk.Tk):
     def __init__(self):
@@ -68,138 +45,81 @@ class Editor(tk.Tk):
         else:
             return
 
-        # if getattr(sys, 'frozen', False):
-        #     base_dir = os.path.dirname(sys.executable)
-        # elif __file__:
-        #     base_dir = os.path.dirname(__file__)
+        # This is the file from the selection dialog
         base_dir = os.path.dirname(self.open_file)
 
+        # This should resolve to the dir where the selected doc is located and create a temporary folder in that directory
         tmpfolder = os.path.join(base_dir, './tmp')
         if (os.path.exists(tmpfolder) == False):
             os.mkdir(tmpfolder)
+
+        configExcludeLists = []
+        configExcludeCards = []
+        configIncludeOrdering = []
+
+        # try to read configuration file (config.csv)
+        configFile = os.path.join(base_dir, './config.csv')
+
+        with open(configFile, "r") as config:
+            configReader = csv.reader(config)
+            configExcludeLists = configReader.__next__()
+            configExcludeCards = configReader.__next__()
+            configIncludeOrdering = configReader.__next__()
+
+        print(f'configExcludeLists: \t{configExcludeLists}')
+        print(f'configExcludeCards: \t{configExcludeCards}')
+        print(f'configIncludeOrdering: \t{configIncludeOrdering}')
 
         # open input CSV file as source
         # open output CSV file as result
         # input = os.path.join(base_dir, './roadmap.csv')
         input = self.open_file
-        filteredRows = os.path.join(tmpfolder, './filtered_rows.csv')
+        filteredRowFile = os.path.join(tmpfolder, './filtered_rows.csv')
 
         with open(input, "r") as source:
             reader = csv.reader(source)
 
-            with open(filteredRows, "w+") as result:
+            # this filters out all the rows we don't want to consider, based on the config.csv and archived cards
+            with open(filteredRowFile, "w+") as result:
                 writer = csv.writer(result)
                 included_line_count = 0
                 excluded_line_count = 0
                 for r in reader:
-                    if (excluded_line_count == 0):
+                    if (excluded_line_count == 0): #skip the table header row
                         excluded_line_count += 1
                         continue
-                    elif (r[0] == separatorCard):
+                    elif (r[0] in configExcludeCards or (r[14]) in configExcludeLists):
                         excluded_line_count += 1
                         continue
-                    elif ((r[14]) in exclude):
-                        # print(f'Unused Lists: \t{r[1]} is on {r[15]} list')
-                        excluded_line_count += 1
-                        continue
-                    elif (r[18]) == 'FALSE' or (r[18]) == 'false': # not archived
-                        included_line_count += 1
-                        writer.writerow(r)
-                    else:
+                    elif (r[18]) == 'True' or (r[18]) == 'true': # archived
                         excluded_line_count +=1
+                    else:
+                        included_line_count += 1 # disco!
+                        writer.writerow(r)
 
                 print(f'Included {included_line_count} lines.')
                 print(f'Excluded {excluded_line_count} lines.')
                 print(f'Total {included_line_count + excluded_line_count} lines.')
 
-        filteredColumns = os.path.join(tmpfolder, './filtered_columns.csv')
-
-        added_rows = 0
-        #active dev
-        with open(filteredRows, "r") as source2:
-            reader2 = csv.reader(source2)
-            with open(filteredColumns, "w+") as result:
-                writer = csv.writer(result)
+        # now we will filter out the columns we don't want
+        filteredColumnFile = os.path.join(tmpfolder, './filtered_columns.csv')
+        with open(filteredRowFile, "r") as source:
+            with open(filteredColumnFile, "w+") as result:
+                added_rows = 0
                 line_count = 0
-                for r in reader2:
-                    if (r[14] == '6037b11252d9416ed766d30f'):
-                        writer.writerow((r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[13],
-                            r[14], r[15], r[16], r[17], r[18], r[19], r[20], r[21], r[22],
-                            r[23], r[24], r[25], r[26], r[27], r[28], r[29], r[30], r[31]))
-                        line_count += 1
-                        added_rows += 1
-
-        #next 3 months
-        with open(filteredRows, "r") as source2:
-            reader2 = csv.reader(source2)
-            with open(filteredColumns, "a+") as result:
-                writer = csv.writer(result)
-                line_count = 0
-                for r in reader2:
-                    if (r[14] == '62e059d937cbc61122aa168a'):
-                        writer.writerow((r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[13],
-                            r[14], r[15], r[16], r[17], r[18], r[19], r[20], r[21], r[22],
-                            r[23], r[24], r[25], r[26], r[27], r[28], r[29], r[30], r[31]))
-                        line_count += 1
-                        added_rows += 1
-
-        #4-6 months
-        with open(filteredRows, "r") as source2:
-            reader2 = csv.reader(source2)
-            with open(filteredColumns, "a+") as result:
-                writer = csv.writer(result)
-                line_count = 0
-                for r in reader2:
-                    if (r[14] == '6320da300ff66a00c9d54084'):
-                        writer.writerow((r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[13],
-                            r[14], r[15], r[16], r[17], r[18], r[19], r[20], r[21], r[22],
-                            r[23], r[24], r[25], r[26], r[27], r[28], r[29], r[30], r[31]))
-                        line_count += 1
-                        added_rows += 1
-
-        #later
-        with open(filteredRows, "r") as source2:
-            reader2 = csv.reader(source2)
-            with open(filteredColumns, "a+") as result:
-                writer = csv.writer(result)
-                line_count = 0
-                for r in reader2:
-                    if (r[14] == '6037b17835a3218900975486'):
-                        writer.writerow((r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[13],
-                            r[14], r[15], r[16], r[17], r[18], r[19], r[20], r[21], r[22],
-                            r[23], r[24], r[25], r[26], r[27], r[28], r[29], r[30], r[31]))
-                        line_count += 1
-                        added_rows += 1
-
-        #prioritization
-        with open(filteredRows, "r") as source2:
-            reader2 = csv.reader(source2)
-            with open(filteredColumns, "a+") as result:
-                writer = csv.writer(result)
-                line_count = 0
-                for r in reader2:
-                    if (r[14] == '62e09ddcd0afaf297c309bbc'):
-                        writer.writerow((r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[13],
-                            r[14], r[15], r[16], r[17], r[18], r[19], r[20], r[21], r[22],
-                            r[23], r[24], r[25], r[26], r[27], r[28], r[29], r[30], r[31]))
-                        line_count += 1
-                        added_rows += 1
-
-        #triage
-        with open(filteredRows, "r") as source2:
-            reader2 = csv.reader(source2)
-            with open(filteredColumns, "a+") as result:
-                writer = csv.writer(result)
-                for r in reader2:
-                    if (r[14] == '62e0a77cf4794110c551efdd'):
-                        writer.writerow((r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[13],
-                            r[14], r[15], r[16], r[17], r[18], r[19], r[20], r[21], r[22],
-                            r[23], r[24], r[25], r[26], r[27], r[28], r[29], r[30], r[31]))
-                        line_count += 1
-                        added_rows += 1
+                rowWriter = csv.writer(result)
+                for listId in configIncludeOrdering:
+                    print(f'configId: {listId}')
+                    rowReader = csv.reader(source)
+                    for row in rowReader:
+                        if (row[14] == listId):
+                            rowWriter.writerow(row)
+                            line_count += 1
+                            added_rows += 1
+                    source.seek(0)
                 print(f'total added: {added_rows} lines.')
 
-
+        # dump all the data into a database and just query for what we want.
         dbPath = os.path.join(tmpfolder, './trello.db')
         connection = sqlite3.connect(dbPath)
 
@@ -222,6 +142,12 @@ class Editor(tk.Tk):
                         Labels TEXT NOT NULL,
                         Members TEXT NOT NULL,
                         Due_Date TEXT NOT NULL,
+                        Attachment_Count TEXT NOT NULL,
+                        Attachment_Links TEXT NOT NULL,
+                        Checklist_Item_Total_Count TEXT NOT NULL,
+                        Checklist_Item_Completed_Count TEXT NOT NULL,
+                        Vote_Count TEXT NOT NULL,
+                        Comment_Count TEXT NOT NULL,
                         Last_Activity_Date TEXT NOT NULL,
                         List_ID TEXT NOT NULL,
                         List_Name TEXT NOT NULL,
@@ -240,7 +166,8 @@ class Editor(tk.Tk):
                         Sales_Oppy TEXT NOT NULL,
                         Op_Efficiency TEXT NOT NULL,
                         Eng_Effort TEXT NOT NULL,
-                        Product_Value TEXT NOT NULL);
+                        Product_Value TEXT NOT NULL,
+                        Kano TEXT NOT NULL);
                         '''
 
         # Creating the table into our
@@ -248,7 +175,7 @@ class Editor(tk.Tk):
         cursor.execute(create_table)
 
         # Opening the temp .csv file
-        file = open(filteredColumns)
+        file = open(filteredColumnFile)
 
         # Reading the contents of the
         # person-records.csv file
@@ -264,6 +191,12 @@ class Editor(tk.Tk):
             Labels,
             Members,
             Due_Date,
+            Attachment_Count,
+            Attachment_Links,
+            Checklist_Item_Total_Count,
+            Checklist_Item_Completed_Count,
+            Vote_Count,
+            Comment_Count,
             Last_Activity_Date,
             List_ID,
             List_Name,
@@ -282,9 +215,10 @@ class Editor(tk.Tk):
             Sales_Oppy,
             Op_Efficiency,
             Eng_Effort,
-            Product_Value
-            ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+            Product_Value,
+            Kano
+            ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
 
         # Importing the contents of the file into our table
         cursor.executemany(insert_records, contents)
@@ -294,7 +228,7 @@ class Editor(tk.Tk):
 
         select_all = """SELECT id, Card_Name, Card_URL, Card_Description,
                         Investment_Area, Inv_Subarea, Scaling, Contractual_Obligation AS Obligation,
-                        Sales_Oppy AS Sales, Op_Efficiency AS Efficiency, Eng_Effort AS Effort, Product_Value AS Value,
+                        Sales_Oppy AS Sales, Op_Efficiency AS Efficiency, Eng_Effort AS Effort, Product_Value AS Value, Kano,
                         Labels, Members, List_Name, Customers
                         FROM roadmap"""
         cursor.execute(select_all)
@@ -304,9 +238,9 @@ class Editor(tk.Tk):
             csv_writer.writerow([i[0] for i in cursor.description])
             csv_writer.writerows(cursor)
 
-        healthbridge = """SELECT id, Card_Name, Card_URL,
+        healthbridge = """SELECT id, Card_Name, Card_URL, Investment_Area,
                         Customers, Scaling, Contractual_Obligation AS Obligation,
-                        Sales_Oppy AS Sales, Op_Efficiency AS Efficiency, Eng_Effort AS Effort, Product_Value AS Value
+                        Sales_Oppy AS Sales, Op_Efficiency AS Efficiency, Eng_Effort AS Effort, Product_Value AS Value, Kano, List_Name
                         FROM roadmap WHERE Labels LIKE '%green%'"""
         cursor.execute(healthbridge)
 
@@ -316,9 +250,9 @@ class Editor(tk.Tk):
             csv_writer.writerows(cursor)
 
 
-        impact_core = """SELECT id, Card_Name, Card_URL,
+        impact_core = """SELECT id, Card_Name, Card_URL, Investment_Area,
                         Customers, Scaling, Contractual_Obligation AS Obligation,
-                        Sales_Oppy AS Sales, Op_Efficiency AS Efficiency, Eng_Effort AS Effort, Product_Value AS Value
+                        Sales_Oppy AS Sales, Op_Efficiency AS Efficiency, Eng_Effort AS Effort, Product_Value AS Value, Kano, List_Name
                         FROM roadmap WHERE Labels LIKE '%red%'"""
         cursor.execute(impact_core)
 
@@ -327,9 +261,9 @@ class Editor(tk.Tk):
             csv_writer.writerow([i[0] for i in cursor.description])
             csv_writer.writerows(cursor)
 
-        impact_integrations = """SELECT id, Card_Name, Card_URL,
+        impact_integrations = """SELECT id, Card_Name, Card_URL, Investment_Area,
                         Customers, Scaling, Contractual_Obligation AS Obligation,
-                        Sales_Oppy AS Sales, Op_Efficiency AS Efficiency, Eng_Effort AS Effort, Product_Value AS Value
+                        Sales_Oppy AS Sales, Op_Efficiency AS Efficiency, Eng_Effort AS Effort, Product_Value AS Value, Kano, List_Name
                         FROM roadmap WHERE Labels LIKE '%orange%'"""
         cursor.execute(impact_integrations)
 
@@ -338,9 +272,9 @@ class Editor(tk.Tk):
             csv_writer.writerow([i[0] for i in cursor.description])
             csv_writer.writerows(cursor)
 
-        platform = """SELECT id, Card_Name, Card_URL,
+        platform = """SELECT id, Card_Name, Card_URL, Investment_Area,
                         Customers, Scaling, Contractual_Obligation AS Obligation,
-                        Sales_Oppy AS Sales, Op_Efficiency AS Efficiency, Eng_Effort AS Effort, Product_Value AS Value
+                        Sales_Oppy AS Sales, Op_Efficiency AS Efficiency, Eng_Effort AS Effort, Product_Value AS Value, Kano, List_Name
                         FROM roadmap WHERE Labels LIKE '%blue%'"""
         cursor.execute(platform)
 
@@ -349,10 +283,10 @@ class Editor(tk.Tk):
             csv_writer.writerow([i[0] for i in cursor.description])
             csv_writer.writerows(cursor)
 
-        all_impact = """SELECT id, Card_Name, Card_URL,
+        all_impact = """SELECT id, Card_Name, Card_URL, Investment_Area,
                         Customers, Scaling, Contractual_Obligation AS Obligation,
-                        Sales_Oppy AS Sales, Op_Efficiency AS Efficiency, Eng_Effort AS Effort, Product_Value AS Value
-                        FROM roadmap WHERE Labels LIKE '%red%' OR Labels LIKE '%orange'"""
+                        Sales_Oppy AS Sales, Op_Efficiency AS Efficiency, Eng_Effort AS Effort, Product_Value AS Value, Kano, List_Name
+                        FROM roadmap WHERE Labels LIKE '%red%' OR Labels LIKE '%orange%'"""
         cursor.execute(all_impact)
 
         with open(tmpfolder + "/all_impact.csv", 'w',newline='') as csv_file:
@@ -361,9 +295,19 @@ class Editor(tk.Tk):
             csv_writer.writerows(cursor)
 
 
+        cs_priorities = """SELECT id, Card_Name, Card_URL, Investment_Area,
+                        Customers, Scaling, Contractual_Obligation AS Obligation,
+                        Sales_Oppy AS Sales, Op_Efficiency AS Efficiency, Eng_Effort AS Effort, Product_Value AS Value, Kano, List_Name
+                        FROM roadmap WHERE List_ID LIKE '63f8f101feca24aa861b3d9f'"""
+        cursor.execute(cs_priorities)
+
+        with open(tmpfolder + "/cs_priorities.csv", 'w',newline='') as csv_file:
+            csv_writer = csv.writer(csv_file)
+            csv_writer.writerow([i[0] for i in cursor.description])
+            csv_writer.writerows(cursor)
+
         # closing the database connection
         connection.close()
-
 
         excelPath = os.path.join(base_dir, './roadmap.xlsx')
         # Create a Pandas Excel writer using XlsxWriter
@@ -376,7 +320,6 @@ class Editor(tk.Tk):
         df = pd.read_csv(tmpfolder + "/platform.csv")
         df["Customers"].fillna("--", inplace = True)
         df.to_excel(writer, sheet_name='platform', index=False)
-
         platformSheet = writer.sheets['platform']
         platformSheet.set_column_pixels('A:A', 30)
         platformSheet.set_column_pixels('B:B', 500, cell_format)
@@ -417,12 +360,22 @@ class Editor(tk.Tk):
         df = pd.read_csv(tmpfolder + "/all_impact.csv")
         df["Customers"].fillna("--", inplace = True)
         df.to_excel(writer, sheet_name='all_impact', index=False)
-        healthbridgeSheet = writer.sheets['all_impact']
-        healthbridgeSheet.set_column_pixels('A:A', 30)
-        healthbridgeSheet.set_column_pixels('B:B', 500, cell_format)
-        healthbridgeSheet.set_column_pixels('C:C', 138)
-        healthbridgeSheet.set_column_pixels('D:D', 88, cell_format)
-        healthbridgeSheet.set_column_pixels('E:J', 75)
+        allImpactSheet = writer.sheets['all_impact']
+        allImpactSheet.set_column_pixels('A:A', 30)
+        allImpactSheet.set_column_pixels('B:B', 500, cell_format)
+        allImpactSheet.set_column_pixels('C:C', 138)
+        allImpactSheet.set_column_pixels('D:D', 88, cell_format)
+        allImpactSheet.set_column_pixels('E:J', 75)
+
+        df = pd.read_csv(tmpfolder + "/cs_priorities.csv")
+        df["Customers"].fillna("--", inplace = True)
+        df.to_excel(writer, sheet_name='cs_priorities', index=False)
+        csPrioritiesSheet = writer.sheets['cs_priorities']
+        csPrioritiesSheet.set_column_pixels('A:A', 30)
+        csPrioritiesSheet.set_column_pixels('B:B', 500, cell_format)
+        csPrioritiesSheet.set_column_pixels('C:C', 138)
+        csPrioritiesSheet.set_column_pixels('D:D', 88, cell_format)
+        csPrioritiesSheet.set_column_pixels('E:J', 75)
 
         # Create ALL Items
         df = pd.read_csv(tmpfolder + "/full_roadmap.csv")
